@@ -1,0 +1,7 @@
+centre_id,capacity,current_demand,distance,zone
+A,100,75,0,1
+B,120,80,3,2
+C,90,50,4,3
+D,150,90,5,4
+E,100,60,6,5
+F,130,75,7,6

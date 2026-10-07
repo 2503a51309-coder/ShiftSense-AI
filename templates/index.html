@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShiftSense AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>ShiftSense AI</h1>
+        <p class="subtitle">See how demand shifts when a service centre goes down</p>
+    </header>
+
+    <!-- Summary cards -->
+    <section class="cards">
+        <div class="card card-active">
+            <h3>Active Centres</h3>
+            <p class="number">{{ summary.active }}</p>
+        </div>
+        <div class="card card-disrupted">
+            <h3>Disrupted Centres</h3>
+            <p class="number">{{ summary.disrupted }}</p>
+        </div>
+        <div class="card card-risk">
+            <h3>Overload Risks</h3>
+            <p class="number">{{ summary.overload_risks }}</p>
+        </div>
+        <div class="card card-demand">
+            <h3>Demand to Redistribute</h3>
+            <p class="number">{{ summary.demand_to_redistribute }}</p>
+        </div>
+    </section>
+
+    <!-- Simulation controls -->
+    <section class="controls">
+        <h2>Simulate a Disruption</h2>
+        <form method="POST" action="/" id="simulate-form">
+            <div class="field">
+                <label for="centre">Disrupted centre</label>
+                <select name="centre" id="centre" required>
+                    <option value="" disabled {% if not selected_centre %}selected{% endif %}>Select a centre</option>
+                    {% for id in centre_ids %}
+                    <option value="{{ id }}" {% if id == selected_centre %}selected{% endif %}>{{ id }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="field">
+                <label for="duration">Disruption duration</label>
+                <select name="duration" id="duration">
+                    {% for d in durations %}
+                    <option value="{{ d }}" {% if d == selected_duration %}selected{% endif %}>{{ d }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit" id="simulate-btn">Simulate Disruption</button>
+        </form>
+
+        {% if error %}
+        <p class="message message-error">{{ error }}</p>
+        {% endif %}
+
+        {% if selected_centre %}
+        <p class="message">
+            Showing the effect of <strong>{{ selected_centre }}</strong> being unavailable
+            for <strong>{{ selected_duration }}</strong>.
+            <strong>{{ summary.demand_to_redistribute }}</strong> demand needs to be redistributed;
+            the model predicts <strong>{{ summary.predicted_total }}</strong> of it will shift to the
+            alternative centres.
+        </p>
+        {% endif %}
+    </section>
+
+    
+        <!-- Overload analysis -->
+    {% if highest %}
+    <section class="highest-box">
+        <h2>Overload Analysis</h2>
+        <ul class="analysis-list">
+            <li>Total demand to redistribute: <strong>{{ summary.demand_to_redistribute }}</strong></li>
+            <li>Overloaded centres: <strong>{{ summary.overload_risks }}</strong>
+                {% if summary.overloaded_ids %}({{ summary.overloaded_ids|join(', ') }}){% endif %}</li>
+            <li>Highest-risk centre: <strong>{{ highest.centre_id }}</strong> ({{ highest.zone }}),
+                expected to reach <strong>{{ highest.utilization }}%</strong> utilization
+                &mdash; <span class="badge risk-{{ highest.risk|lower }}">{{ highest.risk }}</span></li>
+        </ul>
+    </section>
+
+        <!-- Recommended alternative centres -->
+    <section class="recommend-section">
+        <h2>RECOMMENDED ALTERNATIVES</h2>
+        {% if recommendations %}
+        <ol class="rec-list">
+            {% for r in recommendations %}
+            <li>
+                <strong>Centre {{ r.centre_id }}</strong> ({{ r.zone }})
+                &ndash; {{ r.utilization }}% utilization, {{ r.remaining_capacity }} spare capacity, {{ r.distance }} km away
+                <br>
+                <span class="rec-reason">Reason: {{ r.reason }}</span>
+            </li>
+            {% endfor %}
+        </ol>
+        {% if recommendations|length < 3 %}
+        <p class="rec-note">Only {{ recommendations|length }} centre(s) still have spare capacity after the shift, so fewer than 3 are recommended.</p>
+        {% endif %}
+        {% else %}
+        <p>No alternative centre has spare capacity left after the shift.</p>
+        {% endif %}
+    </section>
+    
+    {% endif %}
+    <!-- Results table -->
+    <section class="table-section">
+        <h2>Service Centres</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Centre</th>
+                    <th>Current Demand</th>
+                    <th>Predicted Shift</th>
+                    <th>Expected Demand</th>
+                    <th>Capacity</th>
+                    <th>Utilization</th>
+                    <th>Risk</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for c in centres %}
+                <tr class="{% if c.status == 'Disrupted' %}row-disrupted{% elif highest and c.centre_id == highest.centre_id %}row-highest{% endif %}">
+                    <td>{{ c.centre_id }} <span class="zone">({{ c.zone }})</span></td>
+                    <td>{{ c.current_demand }}</td>
+                    <td>{% if c.status == 'Disrupted' %}&ndash;{% else %}+{{ c.predicted_shift }}{% endif %}</td>
+                    <td>{% if c.status == 'Disrupted' %}&ndash;{% else %}{{ c.expected_demand }}{% endif %}</td>
+                    <td>{{ c.capacity }}</td>
+                    <td>{% if c.status == 'Disrupted' %}&ndash;{% else %}{{ c.utilization }}%{% endif %}</td>
+                    <td><span class="badge risk-{{ c.risk|lower }}">{{ c.risk }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
